@@ -19,11 +19,17 @@ function ConvertFile() {
         const data =  await file.arrayBuffer();
         const workbook = XLSX.read(data);
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        // Define usable range of worksheet (Work-around to 
+        // avoid calculating usable range)
+        worksheet["!ref"] = "A1:Z100";
+
         const parsed = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
             defval: "",
         });
 
+        // TODO: Ideally, this header index should 
+        // be automatically calculated
         const headerRowIndex = 2;
         const headers = parsed[headerRowIndex];
 
@@ -34,7 +40,10 @@ function ConvertFile() {
                 obj[header] = row[i] ? row[i].toString().trim() : "";
             });
             return obj;
-          });
+        }).filter(obj => 
+          // Only keep rows that are non-empty
+          Object.values(obj).some(value => value !== "")
+        );
     
         //console.log(e.target.files[0]);
         // console.log(workbook);
@@ -75,6 +84,9 @@ function ConvertFile() {
     const getMeetingPattern = (pattern, startDate, endDate) => {
         if (!pattern) return [];
         const [daysOfWeek, classHour, location] = pattern.split('|').map(s => s.trim());
+        // TODO: Try using a map here to ensure that
+        // even if the spreadsheet days of the week are somehow 
+        // not the correct format, it'll extract some day or avoid erroring
         const daysOfWeekList = daysOfWeek
             .split('/')
             .map(s => s.trim().slice(0, 2).toUpperCase());
@@ -139,7 +151,7 @@ function ConvertFile() {
     }
 
     useEffect(() => {
-        if (jsonData) {
+        if (jsonData.length > 0) {
             // Convert jsonData to ICS format here
             const ics = convertJsonToIcs();
             console.log(ics)
@@ -154,7 +166,6 @@ function ConvertFile() {
                 accept=".xlsx, .xls"
                 onChange={handleFileInput}
             />
-            {/* TODO download button still showing */}
             {icsData != '' && (
                 <button onClick={handleIcsFileDownload}>Download ICS</button>
             )}
